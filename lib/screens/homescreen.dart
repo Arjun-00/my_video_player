@@ -1,7 +1,17 @@
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-
+import 'package:flutter_windowmanager/flutter_windowmanager.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:my_video_player/screens/loginscreen.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart';
 import '../model/data.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image/image.dart' as img;
+import '../themeclass/themestate.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -11,49 +21,149 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  List<User>? userList1 = [];
+  User? userList1;
   String? names;
   String? emails;
-  String? phonenumbers;
-
-  // final FirebaseFirestore firestore = FirebaseFirestore.instance;
+  String? phoneNO;
+  String? id;
+  String? dateofbirth;
+  String? passwordes;
+  String? imageUrl;
+  String? username;
+  img.Image? decodedImage;
+  late Future<User?> _userFuture;
+  final storage = GetStorage();
   final CollectionReference usersCollection = FirebaseFirestore.instance.collection('userdata');
+  File? _imageFile;
+  final picker = ImagePicker();
 
+  Future<void> secureScreen() async {
+    await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
+  }
 
+  @override
+  Future<void> dispose() async {
+    super.dispose();
+    await FlutterWindowManager.clearFlags(FlutterWindowManager.FLAG_SECURE);
+  }
 
-  Future<List<User>> checkIfEmailExists(String email) async {
-    List<User> userList = [];
+  void readLoginUser(){
+    username = storage.read('username');
+  }
+
+  Future<void> _pickImage() async {
+    var status = await Permission.photos.status;
+    if (status.isDenied) {
+    Map<Permission, PermissionStatus> statuses = await [Permission.photos,].request();
+     }else{
+      final pickedFile = await picker.getImage(source: ImageSource.gallery);
+      setState(() {
+        if (pickedFile != null) {
+          _imageFile = File(pickedFile.path);
+          if (_imageFile != null) {
+            try {
+              updateDonor(id);
+              setState(() {
+                _userFuture = checkIfEmailExists(username!);
+                if (imageUrl != null) {
+                  fetchAndDecodeImage(imageUrl!);
+                }
+                decodedImage;
+              });
+            }catch(e){
+              print("Erroe happening....!");
+            }
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Image uploaded successfully!')),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Please select an image first.')),
+            );
+          }
+        }
+      });
+    }
+  }
+
+  Future<User?> checkIfEmailExists(String email) async {
+    User? userList;
     try {
       QuerySnapshot querySnapshot = await usersCollection.where('email', isEqualTo: email).get();
-      print(querySnapshot.toString());
-      print(querySnapshot.docs);
       if (querySnapshot.docs.isNotEmpty) {
         querySnapshot.docs.forEach((QueryDocumentSnapshot documentSnapshot) {
-          User user = User.fromSnapshot(documentSnapshot);
-          userList.add(user);
+          Map<String, dynamic> data = documentSnapshot.data() as Map<String, dynamic>;
+          String name = data['name'] ?? ''; // Handle null values
+          String? dob = data['dateofbirth'] ?? '';
+          String phonenumber = data['phonenumber'] ?? '';
+          String? password = data['password'] ?? '';
+          String? imageUrl = data['imageUrl'] ?? '';
+          User user = User(
+            name: name,
+            dateofbirth: dob,
+            email: data['email'] ?? '', // Handle email null value
+            phonenumber: phonenumber,
+            password: password,
+            imageUrl: imageUrl ?? '',
+          );
+          user.id = documentSnapshot.id;
+          userList = user;
+          names = user.name;
+          phoneNO = user.phonenumber;
+          dateofbirth = user.dateofbirth;
+          emails = user.email;
+          id = user.id;
+          passwordes = user.password;
+          if(user.imageUrl!= null){
+            imageUrl = user.imageUrl;
+          }
         });
       } else {
         print('No users found.');
       }
-
     } catch (e) {
       print('Error checking email existence: $e');
     }
     return userList;
   }
 
-  Future<void> udateFireData() async {
-    try {
-      userList1 = await  checkIfEmailExists("arjunnarikkuni00@gmail.com");
-    } catch (e) {
-      print('An error occurred: $e');
-    }
+  Future<void> fetchAndDecodeImage(String imageUrl) async {
+    final response = await FirebaseStorage.instance.refFromURL(imageUrl).getData();
+    setState(() {
+      decodedImage = img.decodeImage(Uint8List.fromList(response!));
+    });
   }
 
+  void _logout(){
+    storage.write('username',"");
+    storage.write('password', '');
+    Navigator.of(context).pushNamedAndRemoveUntil('loginscreen', (route) => false);
+  }
+
+  Future<void> updateDonor(docId) async {
+    Reference storageReference = FirebaseStorage.instance.ref().child('images/${DateTime.now().toString()}');
+    UploadTask uploadTask = storageReference.putFile(_imageFile!);
+    TaskSnapshot storageSnapshot = await uploadTask.whenComplete(() => null);
+    String imageUrl = await storageSnapshot.ref.getDownloadURL();
+    final data = {
+      'name' : names,
+      'dateofbirth' : dateofbirth,
+      'email' : emails,
+      'phonenumber' : phoneNO,
+      'password' : passwordes,
+      'imageUrl' : imageUrl
+    };
+    usersCollection.doc(docId).update(data)
+        .then((value) => setState(() {}) );
+  }
 
   @override
   void initState() {
-    udateFireData();
+    secureScreen();
+    readLoginUser();
+    if(username!=null) {
+      _userFuture = checkIfEmailExists(username!);
+    }
     // TODO: implement initState
     super.initState();
   }
@@ -70,66 +180,139 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Card(
                 elevation: 4.0,
-                margin: EdgeInsets.all(16.0),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20.0),
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Image.network(
-                        'https://farm2.staticflickr.com/1533/26541536141_41abe98db3_z_d.jpg',
-                        width: double.infinity,
-                        height: 200.0,
-                        fit: BoxFit.cover,
-                      ),
-                      // const Padding(
-                      //   padding: EdgeInsets.only(left: 16,top: 16,bottom: 7),
-                      //   child: Text("Name :", style: TextStyle(fontSize: 16.0,fontWeight: FontWeight.bold),),
-                      // ),
-                      // const Padding(
-                      //   padding: EdgeInsets.only(left: 16,top: 8,bottom: 7),
-                      //   child: Text("Username : ", style: TextStyle(fontSize: 16.0),),
-                      // ),
-                      // const Padding(
-                      //   padding: EdgeInsets.only(left: 16,top: 8,bottom: 16),
-                      //   child: Text("Phonenumber : ", style: TextStyle(fontSize: 16.0),),
-                      // ),
-                      FutureBuilder<List<User>>(
-                        future: checkIfEmailExists("arjunnarikkuni00@gmail.com"), // Replace with the email you want to check
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
-                            return Center(
-                                child: Padding(
-                                    padding: EdgeInsets.all(16),
-                                    child: CircularProgressIndicator(color: Colors.green,))); // Show loading indicator while fetching data
-                          } else if (snapshot.hasError) {
-                            return Text('Error: ${snapshot.error}');
-                          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                            return Text('No user found with the specified email.');
-                          } else {
-                            User user = snapshot.data![0]; // Assuming you only want to display the first user
-                            return Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Text(
-                                "Name : ${user.name}\nPhone Number : ${user.phonenumber}\nEmail : ${user.email}",
-                                style: TextStyle(fontSize: 16),
+                child: Container(
+                  padding: EdgeInsets.all(15),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20.0),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.green, Colors.black87],
+                    ),
+                  ),
+                  child: FutureBuilder<User?>(
+                    future:_userFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                            child: Padding(
+                                padding: EdgeInsets.all(16),
+                                child: CircularProgressIndicator(color: Colors.green,))); // Show loading indicator while fetching data
+                      } else if (snapshot.hasError) {
+                        return Text('Error: ${snapshot.error}');
+                      } else if (!snapshot.hasData) {
+                        return Text('No user found with the specified email.');
+                      } else {
+                        User user = snapshot.data!;
+                        if(user.imageUrl != null && decodedImage == null) {
+                          fetchAndDecodeImage(user.imageUrl!);
+                        }
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            GestureDetector(
+                              onTap:  _pickImage,
+                              child: Container(
+                                padding: EdgeInsets.all(10),
+                                width: 80,
+                                height: 80,
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                ),
+                                child:  _imageFile == null ?  decodedImage!= null ?
+                                Image.memory(Uint8List.fromList(img.encodePng(decodedImage!))
+                                ):Image.asset('assets/profile.png'): Image.file(_imageFile!),
                               ),
-                            );
-                          }
-                        },
-                      )
-                    ],
+                            ),
+                            SizedBox(width: 16),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text("Name : $names", style: TextStyle(fontSize: 18,fontWeight: FontWeight.bold,color: Colors.white),),
+                                SizedBox(height: 5,),
+                                Text("Phone : $phoneNO", style: TextStyle(fontSize: 15,fontWeight: FontWeight.bold,color: Colors.white)
+                                ),
+                                SizedBox(height: 5,),
+                                Text("Date of birth : $dateofbirth", style: TextStyle(fontSize: 13,color: Colors.white)
+                                ),
+                                SizedBox(height: 5,),
+                                Text("E-mail : $emails", style: TextStyle(fontSize: 13,color: Colors.white),),
+                              ],
+                            ),
+                          ],
+                        );
+                      }
+                    },
                   ),
                 ),
+              ),
+
+          Card(
+            elevation: 4.0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20.0),
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(10),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text("Logout  : ",style: TextStyle(fontWeight: FontWeight.bold,fontSize: 18,color: Colors.red),),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 5),
+                        child: SizedBox(
+                          width: 50.0,
+                          height: 50.0,
+                          child: FloatingActionButton(
+                            onPressed: () {
+                              _logout();
+                            },
+                            child: Icon(Icons.logout),
+                            backgroundColor: Colors.grey,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 10,),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text("Switch to Dark Mode : ",style: TextStyle(fontWeight: FontWeight.bold,fontSize: 18,color: Colors.black),),
+                      Switch(value:Provider.of<ThemeState>(context).theme == ThemeType.DARK, onChanged: (value){
+                        Provider.of<ThemeState>(context,listen: false).theme = value ? ThemeType.DARK : ThemeType.LIGHT;
+                        setState(() {
+                        });
+                      }),
+                    ],
+                  ),
+
+                  TextButton.icon(
+                    onPressed: () {
+                     Navigator.pushNamed(context, 'vedioscreen');
+                    },
+                    icon: Icon(Icons.video_call),
+                    label: Text('Go to Video Player'),
+                    style: TextButton.styleFrom(
+                      primary: Colors.blueAccent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10.0), // Adjust the corner radius here
+                      ),
+                    ),
+                  ),
+                ],
               )
+            ),
+          ),
             ],
           ),
         ),
-
       ),
     );
   }

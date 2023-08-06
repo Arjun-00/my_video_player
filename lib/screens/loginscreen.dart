@@ -1,5 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_windowmanager/flutter_windowmanager.dart';
+import 'package:get_storage/get_storage.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -10,11 +13,44 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final CollectionReference usersCollection = FirebaseFirestore.instance.collection('userdata');
   final _auth = FirebaseAuth.instance;
   final _formKey = GlobalKey<FormState>();
   final TextEditingController emailController =  TextEditingController();
   final TextEditingController passwordController =  TextEditingController();
+  final storage = GetStorage();
   String? errorMessage;
+
+  Future<bool> checkUserCredentials(String username,String password) async {
+    try{
+      QuerySnapshot querySnapshot = await usersCollection.where('email', isEqualTo: username)
+          .where('password', isEqualTo: password).get();
+      if(querySnapshot.docs.isNotEmpty){
+        return true;
+      }else{
+        return false;
+      }
+    }catch(e){
+      print(e);
+      return false;
+    }
+  }
+
+  Future<void> secureScreen() async {
+    await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
+  }
+
+  @override
+  Future<void> dispose() async {
+    super.dispose();
+    await FlutterWindowManager.clearFlags(FlutterWindowManager.FLAG_SECURE);
+  }
+  @override
+  void initState() {
+    secureScreen();
+    // TODO: implement initState
+    super.initState();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +63,6 @@ class _LoginScreenState extends State<LoginScreen> {
           if (value!.isEmpty) {
             return ("Please Enter Your Email");
           }
-          // reg expression for email validation
           if (!RegExp("^[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+.[a-z]")
               .hasMatch(value)) {
             return ("Please Enter a valid email");
@@ -84,15 +119,25 @@ class _LoginScreenState extends State<LoginScreen> {
                   borderRadius: BorderRadius.circular(10))),
           onPressed: () async {
             if (validateAndSave()) {
-              try {
-                final user = await _auth.signInWithEmailAndPassword(
-                    email: emailController.text, password: passwordController.text);
-                if (user != null) {
-                  Navigator.pushNamed(context, 'homescreen');
-                }
-              } catch (e) {
-                print(e);
-              }
+              bool isCredentialsValid = await checkUserCredentials(emailController.text,passwordController.text);
+             if(isCredentialsValid){
+               storage.write('username', emailController.text);
+               storage.write('password', passwordController.text);
+               Navigator.pushNamed(context, 'homescreen');
+             }else{
+               print("User not exist");
+             }
+              // try {
+              //   final user = await _auth.signInWithEmailAndPassword(
+              //       email: emailController.text, password: passwordController.text);
+              //   if (user != null) {
+              //     storage.write('username', emailController.text);
+              //     storage.write('password', passwordController.text);
+              //     Navigator.pushNamed(context, 'homescreen');
+              //   }
+              // } catch (e) {
+              //   print(e);
+              // }
             }
           },
           child: const Text("Login",style: TextStyle(fontSize: 16),)),
@@ -149,6 +194,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+
 
   bool validateAndSave() {
     final form = _formKey.currentState;

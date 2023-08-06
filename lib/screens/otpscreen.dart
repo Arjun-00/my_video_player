@@ -2,9 +2,10 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_windowmanager/flutter_windowmanager.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:my_video_player/screens/signupscreen.dart';
-import 'package:otp_text_field/otp_field.dart';
-import 'package:otp_text_field/style.dart';
+import 'package:sms_autofill/sms_autofill.dart';
 
 
 class OtpScreen extends StatefulWidget {
@@ -17,25 +18,41 @@ class OtpScreen extends StatefulWidget {
 class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin{
   final FirebaseAuth auth = FirebaseAuth.instance;
   final CollectionReference donor = FirebaseFirestore.instance.collection('userdata');
-
-  OtpFieldController otpController = OtpFieldController();
+  final storage = GetStorage();
+  //OtpFieldController otpController = OtpFieldController();
   bool _isResendAgain = false;
   late AnimationController _controller;
   int levelClock = 120;
   late Timer _timer;
   String? errorMessage;
+  String otpCode = "";
   int _start = 120;
   var code = "";
   String? name;
-  String? lastname;
+  String? dateofbirth;
   String? email;
   String? phoneNumber;
   String? password;
 
+  Future<void> secureScreen() async {
+    await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
+  }
 
+  @override
+  Future<void> dispose() async {
+    await FlutterWindowManager.clearFlags(FlutterWindowManager.FLAG_SECURE);
+    SmsAutoFill().unregisterListener();
+    super.dispose();
+  }
+
+  void _listenOtp() async {
+    await SmsAutoFill().listenForCode();
+  }
 
   @override
   void initState() {
+    _listenOtp();
+    secureScreen();
     // TODO: implement initState
     otpTimer();
     super.initState();
@@ -52,7 +69,7 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin{
     _timer = Timer.periodic(oneSec, (timer) {
       setState(() {
         if (_start == 0) {
-          otpController.clear();
+          otpCode = "";
           errorMessage = "OTP Expired !";
           _start = 120;
           _isResendAgain = false;
@@ -69,7 +86,7 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin{
     final Map<String, dynamic> data =
     ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     name = data['name'] as String;
-    lastname = data['lastname'] as String;
+    dateofbirth = data['dateofbirth'] as String;
     email = data['email'] as String;
     phoneNumber = data['phoneNumber'] as String;
     password = data['password'] as String;
@@ -97,20 +114,22 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin{
                 textAlign: TextAlign.center,
               ),
               SizedBox(height: 30,),
-              OTPTextField(
-                  controller: otpController,
-                  length: 6,
-                  width: MediaQuery.of(context).size.width,
-                  textFieldAlignment: MainAxisAlignment.spaceAround,
-                  fieldWidth: 50,
-                  fieldStyle: FieldStyle.box,
-                  outlineBorderRadius: 15,
-                  style: const TextStyle(fontFamily: "SourceSanProBold",fontSize: 20,color: Color(0xff383838)),
-                  onChanged: (value){},
-                  onCompleted: (pin)  {
-                      code = pin.toString();
-                  }
+              PinFieldAutoFill(
+                currentCode: otpCode,
+                decoration: const BoxLooseDecoration(
+                    radius: Radius.circular(12),
+                    strokeColorBuilder: FixedColorBuilder(
+                        Color(0xFF8C4A52))),
+                codeLength: 6,
+                onCodeChanged: (code) {
+                  print("OnCodeChanged : $code");
+                  otpCode = code.toString();
+                },
+                onCodeSubmitted: (val) {
+                  print("OnCodeSubmitted : $val");
+                },
               ),
+
               SizedBox(height: 20,),
               SizedBox(
                 width: double.infinity,
@@ -122,15 +141,17 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin{
                             borderRadius: BorderRadius.circular(10))),
                     onPressed: () async{
                       try{
-                        PhoneAuthCredential credential = PhoneAuthProvider.credential(verificationId: SignUpScreen.verify, smsCode:code);
+                        PhoneAuthCredential credential = PhoneAuthProvider.credential(verificationId: SignUpScreen.verify, smsCode:otpCode);
                         await auth.signInWithCredential(credential);
                         try {
                           final newUser = await auth.createUserWithEmailAndPassword(
                               email: email!, password: password!);
                           if (newUser != null) {
-                            Navigator.pushNamed(context, 'homescreen');
-                            final data = {'name' : name, 'lastname' : lastname, 'email' : email, 'phonenumber' : phoneNumber, 'password' : password};
+                            final data = {'name' : name, 'lastname' : dateofbirth, 'email' : email, 'phonenumber' : phoneNumber, 'password' : password};
                             donor.add(data);
+                            storage.write('username', email);
+                            storage.write('password', password);
+                            Navigator.pushNamed(context, 'homescreen');
                           }
                         } catch (e) {
                           print(e);

@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_windowmanager/flutter_windowmanager.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({Key? key}) : super(key: key);
@@ -15,29 +16,39 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   final _formKey = GlobalKey<FormState>();
   final firstNameEditingController = TextEditingController();
-  final secondNameEditingController =  TextEditingController();
-  final emailEditingController =  TextEditingController();
-  final passwordEditingController =  TextEditingController();
-  final confirmPasswordEditingController =  TextEditingController();
+  final dateOfBirthController = TextEditingController();
+  final emailEditingController = TextEditingController();
+  final passwordEditingController = TextEditingController();
+  final confirmPasswordEditingController = TextEditingController();
   final phoneNumberEditingController = TextEditingController();
   TextEditingController countryController = TextEditingController();
   var phone = "";
 
+  Future<void> secureScreen() async {
+    await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
+  }
+
+  @override
+  Future<void> dispose() async {
+    super.dispose();
+    await FlutterWindowManager.clearFlags(FlutterWindowManager.FLAG_SECURE);
+  }
+
   @override
   void initState() {
+    secureScreen();
     countryController.text = "+91";
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
-
     final firstNameField = TextFormField(
         autofocus: false,
         controller: firstNameEditingController,
         keyboardType: TextInputType.name,
         validator: (value) {
-          RegExp regex =  RegExp(r'^.{3,}$');
+          RegExp regex = RegExp(r'^.{3,}$');
           if (value!.isEmpty) {
             return ("First Name cannot be Empty");
           }
@@ -62,22 +73,26 @@ class _SignUpScreenState extends State<SignUpScreen> {
     //second name field
     final secondNameField = TextFormField(
         autofocus: false,
-        controller: secondNameEditingController,
-        keyboardType: TextInputType.name,
+        controller: dateOfBirthController,
+        keyboardType: TextInputType.number,
         validator: (value) {
           if (value!.isEmpty) {
-            return ("Second Name cannot be Empty");
+            return ("Date of birth cannot be Empty");
+          } else if (dateOfBirthController.text.length <= 10) {
+            return null;
+          } else {
+            return ("Invalid date of birth");
           }
           return null;
         },
         onSaved: (value) {
-          secondNameEditingController.text = value!;
+          dateOfBirthController.text = value!;
         },
         textInputAction: TextInputAction.next,
         decoration: InputDecoration(
-          prefixIcon: const Icon(Icons.account_circle),
+          prefixIcon: const Icon(Icons.calendar_month_sharp),
           contentPadding: const EdgeInsets.fromLTRB(20, 15, 20, 15),
-          hintText: "Second Name",
+          hintText: "Date of Birth",
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
           ),
@@ -117,7 +132,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         controller: passwordEditingController,
         obscureText: true,
         validator: (value) {
-          RegExp regex =  RegExp(r'^.{6,}$');
+          RegExp regex = RegExp(r'^.{6,}$');
           if (value!.isEmpty) {
             return ("Password is required for login");
           }
@@ -185,15 +200,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
           Expanded(
               child: TextFormField(
                 controller: phoneNumberEditingController,
-                onChanged: (val){
+                onChanged: (val) {
                   phone = val;
                 },
                 validator: (value) {
                   if (value!.isEmpty) {
                     return ("Phone number is required for login");
-                  }else if(phoneNumberEditingController.text.length == 10){
-                   return null;
-                  }else{
+                  } else if (phoneNumberEditingController.text.length == 10) {
+                    return null;
+                  } else {
                     return ("Please enter a valid number");
                   }
                 },
@@ -219,24 +234,24 @@ class _SignUpScreenState extends State<SignUpScreen> {
           onPressed: () async {
             if (validateAndSave()) {
               await FirebaseAuth.instance.verifyPhoneNumber(
-                phoneNumber: '${countryController.text+phone}',
+                phoneNumber: '${countryController.text + phone}',
                 verificationCompleted: (PhoneAuthCredential credential) {},
                 verificationFailed: (FirebaseAuthException e) {},
                 codeSent: (String verificationId, int? resendToken) {
                   SignUpScreen.verify = verificationId;
-                  Navigator.pushNamed(context, 'otpscreen',arguments: {
-                    "name" : firstNameEditingController.text,
-                    "lastname" : secondNameEditingController.text,
-                    "email" : emailEditingController.text,
-                    "phoneNumber" : countryController.text+phone,
-                    "password" : passwordEditingController.text
+                  Navigator.of(context).pushNamedAndRemoveUntil('otpscreen',(route) => false,arguments: {
+                    "name": firstNameEditingController.text,
+                    "dateofbirth": dateOfBirthController.text,
+                    "email": emailEditingController.text,
+                    "phoneNumber": countryController.text + phone,
+                    "password": passwordEditingController.text
                   });
                 },
                 codeAutoRetrievalTimeout: (String verificationId) {},
               );
             }
           },
-          child: const Text("SignUp",style: TextStyle(fontSize: 16),)),
+          child: const Text("SignUp", style: TextStyle(fontSize: 16),)),
     );
 
     return Scaffold(
@@ -289,70 +304,4 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
     return false;
   }
-
-// void signUp(String email, String password) async {
-//   if (_formKey.currentState!.validate()) {
-//     try {
-//       await _auth
-//           .createUserWithEmailAndPassword(email: email, password: password)
-//           .then((value) => {postDetailsToFirestore()})
-//           .catchError((e) {
-//         Fluttertoast.showToast(msg: e!.message);
-//       });
-//     } on FirebaseAuthException catch (error) {
-//       switch (error.code) {
-//         case "invalid-email":
-//           errorMessage = "Your email address appears to be malformed.";
-//           break;
-//         case "wrong-password":
-//           errorMessage = "Your password is wrong.";
-//           break;
-//         case "user-not-found":
-//           errorMessage = "User with this email doesn't exist.";
-//           break;
-//         case "user-disabled":
-//           errorMessage = "User with this email has been disabled.";
-//           break;
-//         case "too-many-requests":
-//           errorMessage = "Too many requests";
-//           break;
-//         case "operation-not-allowed":
-//           errorMessage = "Signing in with Email and Password is not enabled.";
-//           break;
-//         default:
-//           errorMessage = "An undefined Error happened.";
-//       }
-//       Fluttertoast.showToast(msg: errorMessage!);
-//       print(error.code);
-//     }
-//   }
-// }
-
-// postDetailsToFirestore() async {
-//   // calling our firestore
-//   // calling our user model
-//   // sedning these values
-//
-//   FirebaseFirestore firebaseFirestore = FirebaseFirestore.instance;
-//   User? user = _auth.currentUser;
-//
-//   UserModel userModel = UserModel();
-//
-//   // writing all the values
-//   userModel.email = user!.email;
-//   userModel.uid = user.uid;
-//   userModel.firstName = firstNameEditingController.text;
-//   userModel.secondName = secondNameEditingController.text;
-//
-//   await firebaseFirestore
-//       .collection("users")
-//       .doc(user.uid)
-//       .set(userModel.toMap());
-//   Fluttertoast.showToast(msg: "Account created successfully :) ");
-//
-//   Navigator.pushAndRemoveUntil(
-//       (context),
-//       MaterialPageRoute(builder: (context) => HomeScreen()),
-//           (route) => false);
-// }
 }
