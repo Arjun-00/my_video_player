@@ -130,7 +130,9 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin{
                       try{
                         otpProvider.otpVerification(context, otpCode, email!, password!, name!, dateofbirth!, phoneNumber!);
                       }catch(e){
-                        errorMessage = e.toString();
+                        setState(() {
+                          errorMessage = e.toString();
+                        });
                       }
                     },
                     child: const Text("Verify Phone Number")),

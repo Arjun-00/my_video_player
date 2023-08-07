@@ -63,7 +63,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _pickImage() async {
     var status = await Permission.photos.status;
     if (status.isDenied) {
-    Map<Permission, PermissionStatus> statuses = await [Permission.photos,].request();
+      Map<Permission, PermissionStatus> statuses1 = await [Permission.storage,].request();
+      Map<Permission, PermissionStatus> statuses2 = await [Permission.camera].request();
+      Map<Permission, PermissionStatus> statuses3 = await [Permission.videos,].request();
+    Map<Permission, PermissionStatus> statuses4 = await [Permission.photos,].request();
      }else{
       final pickedFile = await picker.getImage(source: ImageSource.gallery);
       setState(() {
@@ -103,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
         querySnapshot.docs.forEach((QueryDocumentSnapshot documentSnapshot) {
           Map<String, dynamic> data = documentSnapshot.data() as Map<String, dynamic>;
           String name = data['name'] ?? ''; // Handle null values
-          String? dob = data['dateofbirth'] ?? '';
+          String? dob = data['lastname'] ?? '';
           String phonenumber = data['phonenumber'] ?? '';
           String? password = data['password'] ?? '';
           String? imageUrl = data['imageUrl'] ?? '';
@@ -176,8 +179,18 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
   }
 
+  void requestPermissions() async {
+    Map<Permission, PermissionStatus> statuses = await [
+      Permission.storage, // For both READ_EXTERNAL_STORAGE and WRITE_EXTERNAL_STORAGE on Android
+      Permission.photos,
+      Permission.storage,
+      Permission.videos// For NSPhotoLibraryUsageDescription and NSPhotoLibraryAddUsageDescription on iOS
+    ].request();
+  }
+
   @override
   void initState() {
+    requestPermissions();
     videoData();
     secureScreen();
     readLoginUser();
@@ -316,10 +329,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   TextButton.icon(
                     onPressed: () {
-                     Navigator.pushNamed(context, 'vedioscreen');
                     },
                     icon: Icon(Icons.video_call),
-                    label: Text('Go to Video Player'),
+                    label: Text("Video lis are given below"),
                     style: TextButton.styleFrom(
                       primary: Colors.blueAccent,
                       shape: RoundedRectangleBorder(
@@ -355,7 +367,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
                               file = File(directory.path + "/${video.videoname}.mp4");
                             }
-
                             if (await File(directory.path + "/${video.videoname}.mp4").exists()) {
                               Navigator.push(
                                 context,
@@ -381,8 +392,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               );
                             }
-                          } else {
-                            Map<Permission, PermissionStatus> status = await [Permission.storage, Permission.videos].request();
                           }
 
                         },

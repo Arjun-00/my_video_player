@@ -51,7 +51,6 @@ class MyApp extends StatelessWidget {
           'signupscreen': (context) => SignUpScreen(),
           'otpscreen': (context) => OtpScreen(),
           'homescreen': (context) => HomeScreen(),
-          'vedioscreen': (context) => VedioScreen(),
           // 'verify': (context) => MyVerify(),
           // 'homescreen' : (context) => HomeScreen()
         },

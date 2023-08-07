@@ -37,22 +37,24 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   void initState() {
     super.initState();
     file = File(directory.path+"/${widget.vedioName}.mp4");
-    _controller = VideoPlayerController.network(widget.videoUrl)
-      ..initialize().then((_) {
-        // Ensure the first frame is shown
-        setState(() {
-          _controller.play();
+    if(widget.videoUrl != null){
+      _controller = VideoPlayerController.network(widget.videoUrl)
+        ..initialize().then((_) {
+          // Ensure the first frame is shown
+          setState(() {
+            _controller.play();
+          });
         });
-      });
-
-    // Uncomment this if you want to play a local video file
-    // _controller = VideoPlayerController.asset(widget.localVideoPath)
-    //   ..initialize().then((_) {
-    //     // Ensure the first frame is shown
-    //     setState(() {});
-    //   });
+    }else{
+      _controller = VideoPlayerController.asset(widget.localVideoPath)
+        ..initialize().then((_) {
+          // Ensure the first frame is shown
+          setState(() {
+            _controller.play();
+          });
+        });
+    }
   }
-
   @override
   void dispose() {
     super.dispose();
@@ -64,8 +66,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-
-
         child:Stack(
           children: [
             Column(

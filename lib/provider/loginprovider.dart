@@ -16,8 +16,7 @@ class LoginProvider extends ChangeNotifier{
         return false;
       }
     }catch(e){
-      print(e);
-      return false;
+     throw e;
     }
   }
 

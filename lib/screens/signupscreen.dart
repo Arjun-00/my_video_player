@@ -232,7 +232,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ,dateOfBirthController.text,emailEditingController.text, countryController.text + phone,passwordEditingController.text
                 );
               }catch(e){
-                errorMessage = e.toString();
+                setState(() {
+                  errorMessage = e.toString();
+                });
               }
             }
           },

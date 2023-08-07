@@ -103,10 +103,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 if(isCredentialsValid){
                   loginprovider.saveUserNameAndPassword(context,emailController.text, passwordController.text);
                 }else{
-                  errorMessage="User not exist";
+                  setState(() {
+                    errorMessage="User not exist.!";
+                  });
                 }
               }catch(e){
-                errorMessage = e.toString();
+                setState(() {
+                  errorMessage = e.toString();
+                });
+
               }
             }
           },
