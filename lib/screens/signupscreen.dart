@@ -1,6 +1,7 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_windowmanager/flutter_windowmanager.dart';
+import 'package:my_video_player/provider/signinprovider.dart';
+import 'package:provider/provider.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({Key? key}) : super(key: key);
@@ -11,9 +12,7 @@ class SignUpScreen extends StatefulWidget {
 }
 
 class _SignUpScreenState extends State<SignUpScreen> {
-  // final _auth = FirebaseAuth.instance;
   String? errorMessage;
-
   final _formKey = GlobalKey<FormState>();
   final firstNameEditingController = TextEditingController();
   final dateOfBirthController = TextEditingController();
@@ -27,7 +26,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Future<void> secureScreen() async {
     await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
   }
-
   @override
   Future<void> dispose() async {
     super.dispose();
@@ -43,6 +41,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final signinprovider = Provider.of<SignInProvider>(context);
     final firstNameField = TextFormField(
         autofocus: false,
         controller: firstNameEditingController,
@@ -70,7 +69,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ),
         ));
 
-    //second name field
     final secondNameField = TextFormField(
         autofocus: false,
         controller: dateOfBirthController,
@@ -98,7 +96,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ),
         ));
 
-    //email field
     final emailField = TextFormField(
         autofocus: false,
         controller: emailEditingController,
@@ -126,7 +123,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ),
         ));
 
-    //password field
     final passwordField = TextFormField(
         autofocus: false,
         controller: passwordEditingController,
@@ -153,7 +149,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ),
         ));
 
-    //confirm password field
     final confirmPasswordField = TextFormField(
         autofocus: false,
         controller: confirmPasswordEditingController,
@@ -222,7 +217,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
       ),
     );
 
-    //signup button
     final signUpButton = SizedBox(
       width: double.infinity,
       height: 45,
@@ -233,22 +227,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   borderRadius: BorderRadius.circular(10))),
           onPressed: () async {
             if (validateAndSave()) {
-              await FirebaseAuth.instance.verifyPhoneNumber(
-                phoneNumber: '${countryController.text + phone}',
-                verificationCompleted: (PhoneAuthCredential credential) {},
-                verificationFailed: (FirebaseAuthException e) {},
-                codeSent: (String verificationId, int? resendToken) {
-                  SignUpScreen.verify = verificationId;
-                  Navigator.of(context).pushNamedAndRemoveUntil('otpscreen',(route) => false,arguments: {
-                    "name": firstNameEditingController.text,
-                    "dateofbirth": dateOfBirthController.text,
-                    "email": emailEditingController.text,
-                    "phoneNumber": countryController.text + phone,
-                    "password": passwordEditingController.text
-                  });
-                },
-                codeAutoRetrievalTimeout: (String verificationId) {},
-              );
+              try{
+                signinprovider.signUpDatas(context,'${countryController.text + phone}',firstNameEditingController.text
+                    ,dateOfBirthController.text,emailEditingController.text, countryController.text + phone,passwordEditingController.text
+                );
+              }catch(e){
+                errorMessage = e.toString();
+              }
             }
           },
           child: const Text("SignUp", style: TextStyle(fontSize: 16),)),
@@ -268,8 +253,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: <Widget>[
                     SizedBox(height: 100,
-                        child: Image.asset(
-                          "assets/icons.png", fit: BoxFit.contain,)
+                        child: Image.asset("assets/icons.png", fit: BoxFit.contain,)
                     ),
                     const SizedBox(height: 45),
                     firstNameField,
@@ -286,6 +270,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     const SizedBox(height: 35),
                     signUpButton,
                     const SizedBox(height: 15),
+                    errorMessage!= null ? Text(errorMessage!,style: TextStyle(fontSize: 16,color: Colors.red,fontWeight: FontWeight.bold),) : SizedBox(),
+
                   ],
                 ),
               ),
@@ -295,11 +281,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
       ),
     );
   }
-
   bool validateAndSave() {
     final form = _formKey.currentState;
     if (form!.validate()) {
-      // Validated, perform further actions
       return true;
     }
     return false;

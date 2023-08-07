@@ -1,16 +1,19 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:file_cryptor/file_cryptor.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_windowmanager/flutter_windowmanager.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:my_video_player/screens/loginscreen.dart';
+import 'package:my_video_player/provider/homescreenprovider.dart';
+import 'package:my_video_player/screens/vedioplayer.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import '../model/data.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image/image.dart' as img;
+import '../model/videoclass.dart';
 import '../themeclass/themestate.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -32,21 +35,27 @@ class _HomeScreenState extends State<HomeScreen> {
   String? username;
   img.Image? decodedImage;
   late Future<User?> _userFuture;
+  late List<VideoClass> videos;
   final storage = GetStorage();
   final CollectionReference usersCollection = FirebaseFirestore.instance.collection('userdata');
   File? _imageFile;
   final picker = ImagePicker();
+  late File file;
+  Directory directory= Directory('/storage/emulated/0/Download');
+  FileCryptor fileCryptor = FileCryptor(
+    key: "0IfSLn8F33SIiWlYTyT4j7n6jnNP74xN",
+    iv: 16,
+    dir: "/storage/emulated/0/Download",
+  );
 
   Future<void> secureScreen() async {
     await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
   }
-
   @override
   Future<void> dispose() async {
     super.dispose();
     await FlutterWindowManager.clearFlags(FlutterWindowManager.FLAG_SECURE);
   }
-
   void readLoginUser(){
     username = storage.read('username');
   }
@@ -157,8 +166,19 @@ class _HomeScreenState extends State<HomeScreen> {
         .then((value) => setState(() {}) );
   }
 
+  void videoData(){
+    videos = [
+      VideoClass(videoid: 1,videoUrl: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",videoname: "Cartone CN",isDownload: false,image: "assets/icons.png"),
+      VideoClass(videoid: 2,videoUrl: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",videoname: "News -Live",isDownload: false,image: "assets/icons.png"),
+      VideoClass(videoid: 3,videoUrl: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",videoname: "Turisam",isDownload: false,image: "assets/icons.png"),
+      VideoClass(videoid: 4,videoUrl: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",videoname: "Films New",isDownload: false,image: "assets/icons.png"),
+      VideoClass(videoid: 5,videoUrl: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",videoname: "Technology",isDownload: false,image: "assets/icons.png"),
+    ];
+  }
+
   @override
   void initState() {
+    videoData();
     secureScreen();
     readLoginUser();
     if(username!=null) {
@@ -170,6 +190,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final homescreenprovider = Provider.of<HomeScreenProvider>(context);
     return Scaffold(
       body: Container(
         padding: EdgeInsets.fromLTRB(10, 10, 10, 15),
@@ -310,6 +331,68 @@ class _HomeScreenState extends State<HomeScreen> {
               )
             ),
           ),
+              Container(
+                padding: EdgeInsets.only(top: 20),
+               // height: 200,
+                width: double.infinity,
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: videos.length,
+                  itemBuilder: (context, index) {
+                    VideoClass video = videos[index];
+                    return Padding(
+                      padding: EdgeInsets.symmetric(vertical:6,horizontal: 4 ),
+                      child: ListTile(
+                        onTap: () async{
+                          var status = await Permission.storage.request();
+                          Map<Permission, PermissionStatus> statuses = await [Permission.storage, Permission.videos].request();
+                          if (statuses[Permission.storage]!.isGranted) {
+                            if (await File(directory.path + "/${video.videoname}.aes").exists()) {
+                              File decryptedFile = await fileCryptor.decrypt(
+                                inputFile: "${video.videoname}.aes",
+                                outputFile: "${video.videoname}.mp4",
+                              );
+
+                              file = File(directory.path + "/${video.videoname}.mp4");
+                            }
+
+                            if (await File(directory.path + "/${video.videoname}.mp4").exists()) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => VideoPlayerScreen(
+                                    videoUrl: "",
+                                    localVideoPath: file,
+                                    decodedImage: decodedImage,
+                                    vedioName: video.videoname,
+                                  ),
+                                ),
+                              );
+                            } else {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => VideoPlayerScreen(
+                                    videoUrl: video.videoUrl,
+                                    localVideoPath: "",
+                                    decodedImage: decodedImage,
+                                    vedioName: video.videoname,
+                                  ),
+                                ),
+                              );
+                            }
+                          } else {
+                            Map<Permission, PermissionStatus> status = await [Permission.storage, Permission.videos].request();
+                          }
+
+                        },
+                        leading: Image.asset(video.image),
+                        title: Text(video.videoname),
+                      ),
+                    );
+                  },
+                ),
+              ),
             ],
           ),
         ),

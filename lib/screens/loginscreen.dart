@@ -1,45 +1,25 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_windowmanager/flutter_windowmanager.dart';
-import 'package:get_storage/get_storage.dart';
+import 'package:my_video_player/provider/loginprovider.dart';
+import 'package:provider/provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
-
 
   @override
   _LoginScreenState createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final CollectionReference usersCollection = FirebaseFirestore.instance.collection('userdata');
-  final _auth = FirebaseAuth.instance;
   final _formKey = GlobalKey<FormState>();
   final TextEditingController emailController =  TextEditingController();
   final TextEditingController passwordController =  TextEditingController();
-  final storage = GetStorage();
   String? errorMessage;
-
-  Future<bool> checkUserCredentials(String username,String password) async {
-    try{
-      QuerySnapshot querySnapshot = await usersCollection.where('email', isEqualTo: username)
-          .where('password', isEqualTo: password).get();
-      if(querySnapshot.docs.isNotEmpty){
-        return true;
-      }else{
-        return false;
-      }
-    }catch(e){
-      print(e);
-      return false;
-    }
-  }
 
   Future<void> secureScreen() async {
     await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
   }
-
   @override
   Future<void> dispose() async {
     super.dispose();
@@ -48,13 +28,13 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     secureScreen();
-    // TODO: implement initState
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
-    //email field
+    final loginprovider = Provider.of<LoginProvider>(context);
+
     final emailField = TextFormField(
         autofocus: false,
         controller: emailController,
@@ -82,7 +62,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ));
 
-    //password field
     final passwordField = TextFormField(
         autofocus: false,
         controller: passwordController,
@@ -119,25 +98,16 @@ class _LoginScreenState extends State<LoginScreen> {
                   borderRadius: BorderRadius.circular(10))),
           onPressed: () async {
             if (validateAndSave()) {
-              bool isCredentialsValid = await checkUserCredentials(emailController.text,passwordController.text);
-             if(isCredentialsValid){
-               storage.write('username', emailController.text);
-               storage.write('password', passwordController.text);
-               Navigator.pushNamed(context, 'homescreen');
-             }else{
-               print("User not exist");
-             }
-              // try {
-              //   final user = await _auth.signInWithEmailAndPassword(
-              //       email: emailController.text, password: passwordController.text);
-              //   if (user != null) {
-              //     storage.write('username', emailController.text);
-              //     storage.write('password', passwordController.text);
-              //     Navigator.pushNamed(context, 'homescreen');
-              //   }
-              // } catch (e) {
-              //   print(e);
-              // }
+              try{
+                bool isCredentialsValid = await loginprovider.checkUserCredentials(emailController.text,passwordController.text);
+                if(isCredentialsValid){
+                  loginprovider.saveUserNameAndPassword(context,emailController.text, passwordController.text);
+                }else{
+                  errorMessage="User not exist";
+                }
+              }catch(e){
+                errorMessage = e.toString();
+              }
             }
           },
           child: const Text("Login",style: TextStyle(fontSize: 16),)),
@@ -184,7 +154,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                   fontSize: 17),
                             ),
                           )
-                        ])
+                        ]
+                    ),
+                    const SizedBox(height: 10,),
+                    errorMessage!= null ? Text(errorMessage!,style: TextStyle(fontSize: 16,color: Colors.red,fontWeight: FontWeight.bold),) : SizedBox(),
+
                   ],
                 ),
               ),
@@ -195,7 +169,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-
   bool validateAndSave() {
     final form = _formKey.currentState;
     if (form!.validate()) {
@@ -203,45 +176,4 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     return false;
   }
-
-// login function
-// void signIn(String email, String password) async {
-//   if (_formKey.currentState!.validate()) {
-//     try {
-//       await _auth
-//           .signInWithEmailAndPassword(email: email, password: password)
-//           .then((uid) => {
-//         Fluttertoast.showToast(msg: "Login Successful"),
-//         Navigator.of(context).pushReplacement(
-//             MaterialPageRoute(builder: (context) => HomeScreen())),
-//       });
-//     } on FirebaseAuthException catch (error) {
-//       switch (error.code) {
-//         case "invalid-email":
-//           errorMessage = "Your email address appears to be malformed.";
-//
-//           break;
-//         case "wrong-password":
-//           errorMessage = "Your password is wrong.";
-//           break;
-//         case "user-not-found":
-//           errorMessage = "User with this email doesn't exist.";
-//           break;
-//         case "user-disabled":
-//           errorMessage = "User with this email has been disabled.";
-//           break;
-//         case "too-many-requests":
-//           errorMessage = "Too many requests";
-//           break;
-//         case "operation-not-allowed":
-//           errorMessage = "Signing in with Email and Password is not enabled.";
-//           break;
-//         default:
-//           errorMessage = "An undefined Error happened.";
-//       }
-//       Fluttertoast.showToast(msg: errorMessage!);
-//       print(error.code);
-//     }
-//   }
-// }
 }

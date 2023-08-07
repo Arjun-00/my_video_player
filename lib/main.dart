@@ -1,6 +1,11 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:my_video_player/provider/homescreenprovider.dart';
+import 'package:my_video_player/provider/loginprovider.dart';
+import 'package:my_video_player/provider/otpprovider.dart';
+import 'package:my_video_player/provider/signinprovider.dart';
+import 'package:my_video_player/provider/splashprovider.dart';
 import 'package:my_video_player/screens/homescreen.dart';
 import 'package:my_video_player/screens/loginscreen.dart';
 import 'package:my_video_player/screens/otpscreen.dart';
@@ -15,8 +20,17 @@ Future<void> main() async {
   await Firebase.initializeApp();
   await GetStorage.init();
   runApp(
-    ChangeNotifierProvider<ThemeState>(
-      create: (context) => ThemeState(),
+    MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => ThemeState()),
+          ChangeNotifierProvider(create: (_) => SplashProvider()),
+          ChangeNotifierProvider(create: (_) => LoginProvider()),
+          ChangeNotifierProvider(create: (_) => SignInProvider()),
+          ChangeNotifierProvider(create: (_) => OtpProvider()),
+          ChangeNotifierProvider(create: (_) => HomeScreenProvider()),
+        ],
+       // providers: providers)<ThemeState>(
+    //  create: (context) => ThemeState(),
       child: MyApp(),
     ),
   );

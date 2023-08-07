@@ -1,10 +1,8 @@
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_windowmanager/flutter_windowmanager.dart';
-import 'package:get_storage/get_storage.dart';
-import 'package:my_video_player/screens/signupscreen.dart';
+import 'package:my_video_player/provider/otpprovider.dart';
+import 'package:provider/provider.dart';
 import 'package:sms_autofill/sms_autofill.dart';
 
 
@@ -16,10 +14,6 @@ class OtpScreen extends StatefulWidget {
 }
 
 class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin{
-  final FirebaseAuth auth = FirebaseAuth.instance;
-  final CollectionReference donor = FirebaseFirestore.instance.collection('userdata');
-  final storage = GetStorage();
-  //OtpFieldController otpController = OtpFieldController();
   bool _isResendAgain = false;
   late AnimationController _controller;
   int levelClock = 120;
@@ -37,25 +31,14 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin{
   Future<void> secureScreen() async {
     await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
   }
-
   @override
   Future<void> dispose() async {
     await FlutterWindowManager.clearFlags(FlutterWindowManager.FLAG_SECURE);
     SmsAutoFill().unregisterListener();
     super.dispose();
   }
-
   void _listenOtp() async {
     await SmsAutoFill().listenForCode();
-  }
-
-  @override
-  void initState() {
-    _listenOtp();
-    secureScreen();
-    // TODO: implement initState
-    otpTimer();
-    super.initState();
   }
 
   void otpTimer() {
@@ -82,7 +65,16 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin{
   }
 
   @override
+  void initState() {
+    _listenOtp();
+    secureScreen();
+    otpTimer();
+    super.initState();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final otpProvider = Provider.of<OtpProvider>(context);
     final Map<String, dynamic> data =
     ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     name = data['name'] as String;
@@ -93,17 +85,13 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin{
     return Scaffold(
       extendBodyBehindAppBar: true,
       body: Container(
-        margin: EdgeInsets.only(left: 25, right: 25),
+        margin: const EdgeInsets.only(left: 25, right: 25),
         alignment: Alignment.center,
         child: SingleChildScrollView(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.asset(
-                'assets/icons.png',
-                width: 120,
-                height: 120,
-              ),
+              Image.asset('assets/icons.png', width: 120, height: 120,),
               const SizedBox(height: 25,),
               const Text("Phone Verification",
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
@@ -113,7 +101,7 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin{
                 style: TextStyle(fontSize: 16,),
                 textAlign: TextAlign.center,
               ),
-              SizedBox(height: 30,),
+              const SizedBox(height: 30,),
               PinFieldAutoFill(
                 currentCode: otpCode,
                 decoration: const BoxLooseDecoration(
@@ -129,8 +117,7 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin{
                   print("OnCodeSubmitted : $val");
                 },
               ),
-
-              SizedBox(height: 20,),
+              const SizedBox(height: 20,),
               SizedBox(
                 width: double.infinity,
                 height: 45,
@@ -141,26 +128,12 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin{
                             borderRadius: BorderRadius.circular(10))),
                     onPressed: () async{
                       try{
-                        PhoneAuthCredential credential = PhoneAuthProvider.credential(verificationId: SignUpScreen.verify, smsCode:otpCode);
-                        await auth.signInWithCredential(credential);
-                        try {
-                          final newUser = await auth.createUserWithEmailAndPassword(
-                              email: email!, password: password!);
-                          if (newUser != null) {
-                            final data = {'name' : name, 'lastname' : dateofbirth, 'email' : email, 'phonenumber' : phoneNumber, 'password' : password};
-                            donor.add(data);
-                            storage.write('username', email);
-                            storage.write('password', password);
-                            Navigator.pushNamed(context, 'homescreen');
-                          }
-                        } catch (e) {
-                          print(e);
-                        }
+                        otpProvider.otpVerification(context, otpCode, email!, password!, name!, dateofbirth!, phoneNumber!);
                       }catch(e){
-                        print("wrong otp");
+                        errorMessage = e.toString();
                       }
                     },
-                    child: Text("Verify Phone Number")),
+                    child: const Text("Verify Phone Number")),
               ),
               Row(
                 children: [
@@ -168,24 +141,22 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin{
                       onPressed: () {
                         Navigator.pushNamedAndRemoveUntil(context, 'signupscreen', (route) => false,);
                       },
-                      child: Text(
-                        "Edit Phone Number ?",
-                        style: TextStyle(color: Colors.black),
-                      ))
+                      child: const Text("Edit Phone Number ?", style: TextStyle(color: Colors.black),))
                 ],
               ),
-
-              SizedBox(height: 15,),
+              const SizedBox(height: 15,),
               _isResendAgain ? Countdown(animation: StepTween(
                 begin: levelClock,
                 end: 0,
               ).animate(_controller),) : const SizedBox(),
-              SizedBox(height: 20,),
+              const SizedBox(height: 20,),
               GestureDetector(
                   onTap: () {
                     otpTimer();
                   },
-                  child: Text("RESEND NEW CODE",textAlign: TextAlign.center,style: TextStyle(fontFamily: "SourceSanProBold",fontSize:15,fontWeight: FontWeight.bold,color:Colors.red))),
+                  child: const Text("RESEND NEW CODE",textAlign: TextAlign.center,style: TextStyle(fontFamily: "SourceSanProBold",fontSize:15,fontWeight: FontWeight.bold,color:Colors.red))),
+              const SizedBox(height: 15),
+              errorMessage!= null ? Text(errorMessage!,style: TextStyle(fontSize: 16,color: Colors.red,fontWeight: FontWeight.bold),) : SizedBox(),
             ],
           ),
         ),

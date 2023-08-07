@@ -1,8 +1,8 @@
 import 'dart:io';
+import 'package:chewie/chewie.dart';
 import 'package:dio/dio.dart';
 import 'package:downloads_path_provider_28/downloads_path_provider_28.dart';
 import 'package:file_cryptor/file_cryptor.dart';
-import 'package:flick_video_player/flick_video_player.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_windowmanager/flutter_windowmanager.dart';
 import 'package:get_storage/get_storage.dart';
@@ -18,11 +18,11 @@ class VedioScreen extends StatefulWidget {
 }
 
 class _VedioScreenState extends State<VedioScreen> {
+
   var scaffoldKey = GlobalKey<ScaffoldState>();
-  late FlickManager flickManager;
   bool _ontab = false;
   late List<VideoClass> videos;
-  String streamVideo = "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+  String? streamVideo;
   int selectedIndex =0;
   late VideoClass currentVideoInfo;
   Directory directory= Directory('/storage/emulated/0/Download');
@@ -33,21 +33,34 @@ class _VedioScreenState extends State<VedioScreen> {
     dir: "/storage/emulated/0/Download",
   );
   final storage = GetStorage();
+  late VideoPlayerController _videoPlayerController;
+  late ChewieController _chewieController;
+  double _currentVolume = 1.0;
+  bool _showSettings = false;
 
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
-    disableCapture();
     videoData();
+    _videoPlayerController = VideoPlayerController.network("http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4");
+    _chewieController = ChewieController(
+      videoPlayerController: _videoPlayerController,
+      autoPlay: false,
+      looping: true,
+      aspectRatio: 16 / 9,
+      showControls: false,
+    );
+    disableCapture();
     currentVideoInfo = videos[0];
     file = File(directory.path+"/${currentVideoInfo.videoname}.mp4");
-    streamInitialize();
+   // streamInitialize();
   }
 
   @override
   void dispose() {
-    flickManager.dispose();
+    _chewieController.dispose();
+    _videoPlayerController.dispose();
     videos.clear();
     file.delete();
     super.dispose();
@@ -64,7 +77,13 @@ class _VedioScreenState extends State<VedioScreen> {
           children: [
             Column(
               children: [
-                FlickVideoPlayer(flickManager: flickManager),
+                Container(
+                  height: 200,
+                  width: double.infinity,
+                  child: Chewie(
+                    controller: _chewieController,
+                  ),
+                ),
                 SizedBox(height: 25.0,),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -189,12 +208,12 @@ class _VedioScreenState extends State<VedioScreen> {
                                 onTap: () async{
                                   setState(() {
                                     selectedIndex = index;
-                                    File(directory.path+"/${currentVideoInfo.videoname}.mp4").delete();
+                                   File(directory.path+"/${currentVideoInfo.videoname}.mp4").delete();
                                     currentVideoInfo = videos[index];
                                     streamVideo = videos[index].videoUrl;
-                                    acessingFilefromInternalStoraqge();
+                                    acessingFilefromInternalStoraqge(videos[index].videoUrl);
                                   });
-                                  compareOnlineStreamOrStorageStream();
+                                  //compareOnlineStreamOrStorageStream(streamVideo!);
                                 },
                                 child: ConstrainedBox(
                                     constraints: const BoxConstraints(minWidth: 50, minHeight: 50),
@@ -219,43 +238,152 @@ class _VedioScreenState extends State<VedioScreen> {
               ],
             ),
 
-            _ontab == true ? const SizedBox(): Positioned(
-              top: 55,
-              right: 20,
-              child: GestureDetector(
-                onTap: () => scaffoldKey.currentState!.openDrawer(),
-                child: Container(
-                  height: 50,
-                  width: 50,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(7),
-                  ),
-                  child: ClipRRect(
-                      borderRadius: BorderRadius.circular(7),
-                      child: Image.asset("assets/icons.png", fit: BoxFit.cover,)
-                  ),
-                ),
-              ),
-            ),
+            // _ontab == true ? const SizedBox(): Positioned(
+            //   top: 55,
+            //   right: 20,
+            //   child: GestureDetector(
+            //     onTap: () => scaffoldKey.currentState!.openDrawer(),
+            //     child: Container(
+            //       height: 50,
+            //       width: 50,
+            //       decoration: BoxDecoration(
+            //         borderRadius: BorderRadius.circular(7),
+            //       ),
+            //       child: ClipRRect(
+            //           borderRadius: BorderRadius.circular(7),
+            //           child: Image.asset("assets/icons.png", fit: BoxFit.cover,)
+            //       ),
+            //     ),
+            //   ),
+            // ),
+
+            // Container(
+            //     color: Colors.transparent,
+            //     padding: EdgeInsets.only(top: 130,left: 16,right: 16),
+            //     child: Column(
+            //       children: [
+            //         Row(
+            //           children: [
+            //             GestureDetector(
+            //               child : Icon(
+            //                 _videoPlayerController.value.isPlaying
+            //                     ? Icons.pause
+            //                     : Icons.play_arrow,size: 35,
+            //               ),
+            //               onTap: () {
+            //                 setState(() {
+            //                   if (_videoPlayerController.value.isPlaying) {
+            //                     _videoPlayerController.pause();
+            //                   } else {
+            //                     _videoPlayerController.play();
+            //                   }
+            //                 });
+            //               },
+            //             ),
+            //             Expanded(
+            //               child: VideoProgressIndicator(
+            //                 _videoPlayerController,
+            //                 allowScrubbing: true, // Enable seeking
+            //               ),
+            //             ),
+            //           ],
+            //         ),
+            //
+            //         // SizedBox(height: 8,),
+            //         //
+            //         // Padding(padding: EdgeInsets.only(left: 60),
+            //         //   child: Row(
+            //         //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            //         //     children: [
+            //         //       Row(
+            //         //         children: [
+            //         //           GestureDetector(
+            //         //               child: Icon(Icons.skip_previous_outlined,),
+            //         //               onTap: () {
+            //         //
+            //         //               }),
+            //         //           SizedBox(width: 5,),
+            //         //           GestureDetector(
+            //         //               child: Icon(Icons.skip_next_outlined,),
+            //         //               onTap: () {
+            //         //
+            //         //               }),
+            //         //           SizedBox(width: 5,),
+            //         //           GestureDetector(
+            //         //               child: Icon(_currentVolume > 0.0
+            //         //                   ? Icons.volume_up
+            //         //                   : Icons.volume_off,),
+            //         //               onTap: () {
+            //         //                 setState(() {
+            //         //                   _currentVolume = _currentVolume > 0.0 ? 0.0 : 1.0;
+            //         //                   _videoPlayerController.setVolume(_currentVolume);
+            //         //                 });
+            //         //               }),
+            //         //         ],
+            //         //       ),
+            //         //
+            //         //       Row(
+            //         //         children: [
+            //         //           GestureDetector(
+            //         //               child: Icon(Icons.settings,),
+            //         //               onTap: () {
+            //         //                 setState(() {
+            //         //                   _showSettings = !_showSettings;
+            //         //                 });
+            //         //               }),
+            //         //           SizedBox(width: 5,),
+            //         //           GestureDetector(
+            //         //               child: Icon( _chewieController.isFullScreen
+            //         //                   ? Icons.fullscreen_exit
+            //         //                   : Icons.fullscreen,),
+            //         //               onTap: () {
+            //         //                 setState(() {
+            //         //                   _chewieController.toggleFullScreen();
+            //         //                 });
+            //         //               }),
+            //         //         ],
+            //         //       )
+            //         //     ],
+            //         //   ),
+            //         // ),
+            //       ],
+            //     )
+            // ),
+
           ],
         ),
       ),
     );
   }
 
-  void acessingFilefromInternalStoraqge() async{
+  void acessingFilefromInternalStoraqge(String urls) async{
     if(await File(directory.path+"/${currentVideoInfo.videoname}.aes").exists() == true){
       File decryptedFile = await fileCryptor.decrypt(inputFile: "${currentVideoInfo.videoname}.aes", outputFile: "${currentVideoInfo.videoname}.mp4");
       file = File(directory.path+"/${currentVideoInfo.videoname}.mp4");
     }
+    if(await File(directory.path+"/${currentVideoInfo.videoname}.mp4").exists() == true) {
+      _videoPlayerController = VideoPlayerController.file(file);
+      // flickManager.handleChangeVideo(VideoPlayerController.file(file));
+    }else{
+
+      //  flickManager.handleChangeVideo(VideoPlayerController.network(streamVideo));
+    }
+
+    setState(() {
+      _videoPlayerController = VideoPlayerController.network(urls);
+      // _chewieController = ChewieController(
+      //   videoPlayerController: _videoPlayerController,
+      //   autoPlay: true,
+      //   looping: true,
+      //   // Other customization options can be set here
+      // );
+    });
+
+
   }
 
-  void compareOnlineStreamOrStorageStream() async{
-    if(await File(directory.path+"/${currentVideoInfo.videoname}.mp4").exists() == true) {
-      flickManager.handleChangeVideo(VideoPlayerController.file(file));
-    }else{
-      flickManager.handleChangeVideo(VideoPlayerController.network(streamVideo));
-    }
+   void compareOnlineStreamOrStorageStream() async{
+
   }
 
   void videoData(){
@@ -268,13 +396,25 @@ class _VedioScreenState extends State<VedioScreen> {
     ];
   }
 
-  void streamInitialize() {
-    if( File(directory.path+"/${currentVideoInfo.videoname}.mp4").exists() == true){
-      flickManager = FlickManager(videoPlayerController:VideoPlayerController.file(file));
-    }else{
-      flickManager = FlickManager(videoPlayerController: VideoPlayerController.network(streamVideo),);
-    }
-  }
+  // Future<void> streamInitialize(String urls) async {
+  //   if( File(directory.path+"/${currentVideoInfo.videoname}.mp4").exists() == true){
+  //     _videoPlayerController = VideoPlayerController.file(file);
+  //     //flickManager = FlickManager(videoPlayerController:VideoPlayerController.file(file));
+  //   }else{
+  //     _videoPlayerController = VideoPlayerController.network(urls);
+  //    // flickManager = FlickManager(videoPlayerController: VideoPlayerController.network(streamVideo),);
+  //   }
+  //   await _videoPlayerController.initialize();
+  //
+  //   _chewieController = ChewieController(
+  //     videoPlayerController: _videoPlayerController,
+  //     autoPlay: true,
+  //     looping: true,
+  //     // Other customization options can be set here
+  //   );
+  //
+  //   setState(() {});
+  // }
 
   void dialogBox(BuildContext context,String heading,String content){
     showDialog(
